@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace KnapsackProblemGeneticAlgorithm
@@ -7,111 +7,106 @@ namespace KnapsackProblemGeneticAlgorithm
     {
         static void Main()
         {
-            Random gen = new Random(); // object of the class Random for generating pseudo random integers
+            Random random = new Random();
+            int maxVolume = GetInput("Enter the maximum volume:");
+            int minComponentSize = GetInput("Enter the minimum component's size:");
+            int maxComponentSize = GetInput("Enter the maximum component's size:") + 1;
+            int maxMutations = GetInput("Enter the maximum number of mutations:");
 
-            int currentVolume;
-            Console.WriteLine("Enter the maximum volume:");
-            int maxVolume = int.Parse(Console.ReadLine());
-            Console.WriteLine("Enter the minimum component's size:");
-            int minComponent = int.Parse(Console.ReadLine());
-            Console.WriteLine("Enter the maximum component's size:");
-            int maxComponent = int.Parse(Console.ReadLine()) + 1;
-            Console.WriteLine("Enter the maximum number of mutations:");
-            int m = int.Parse(Console.ReadLine());
+            int populationSize = 100;
+            int[] componentSizes = new int[populationSize];
+            byte[] solution = new byte[populationSize];
 
-            int size = 100; // predefined arrays' size - components and "backpack" arrays MUST be the same size, otherwise OutOfRangeException will occur
-
-            int[] components = new int[size]; 
-            byte[] slots = new byte[size];
+            InitializeComponents(componentSizes, solution, minComponentSize, maxComponentSize, random);
 
             Console.WriteLine($"\n\nMaximum volume: {maxVolume}\n");
-            Console.WriteLine($"Components:");
+            Console.WriteLine($"Components: {string.Join(" ", componentSizes)}\n");
 
-            for (int i = 0; i < components.Length; i++)
+            int currentVolume = CalculateVolume(componentSizes, solution);
+            int greatestComponent = componentSizes.Max();
+            int smallestComponent = componentSizes.Min();
+
+            Console.WriteLine($"Greatest component: {greatestComponent}\n");
+            Console.WriteLine($"Smallest component: {smallestComponent}\n");
+            Console.WriteLine("First random solution:");
+            PrintSolution(solution, currentVolume);
+
+            byte[] bestSolution = solution;
+            int bestVolume = currentVolume;
+
+            for (int i = 0; i < maxMutations; i++)
             {
-                components[i] = gen.Next(minComponent, maxComponent); // random maximum component sizes 
-                Console.Write(components[i] + " "); // printing the components
-                slots[i] = (byte)gen.Next(0, 2); // random bytes 0-1
-            }
-            Console.WriteLine("\n");
+                MutateSolution(solution, componentSizes, random);
+                currentVolume = CalculateVolume(componentSizes, solution);
 
-            void addComponents() //calculates the current total components volume
-            {
-                currentVolume = 0; // zeroing the component sum first
-                for (int i = 0; i < slots.Length; i++)
+                if (currentVolume == maxVolume)
                 {
-                    if (slots[i] == 1)
-                    {
-                        currentVolume += components[i];
-                    }
-                }
-            }
-
-            addComponents(); // first solution
-
-            Console.WriteLine($"Greatest component: {components.Max()}\n");
-            Console.WriteLine($"Smallest component: {components.Min()}\n");
-            Console.WriteLine($"First random solution:");
-            for (int i = 0; i < slots.Length; i++)
-            {
-                Console.Write($"{slots[i]}");
-            }
-            Console.Write($" - volume: {currentVolume}");
-            Console.WriteLine(); 
-
-
-
-            byte[] previousSolution = slots; // saving the previous solution, to use again if the new is worse (previousSolution will be "parent" and slots is "child")
-            int previousVolume = currentVolume; // saving the previous solution's volume
-
-            void Mutation()
-            {
-                int randomIndex = gen.Next(0, slots.Length);
-                if (slots[randomIndex] == 0)
-                    slots[randomIndex] = 1;
-                else slots[randomIndex] = 0;
-                
-                addComponents(); // adding components in the new solution
-               
-                //checking if the new solution is better or worse
-                if (Math.Abs(currentVolume - maxVolume) < Math.Abs(previousVolume - maxVolume)) 
-                {
-                    previousSolution = slots;
-                    previousVolume = currentVolume;
-                } else if (Math.Abs(currentVolume - maxVolume) == Math.Abs(previousVolume - maxVolume) && currentVolume < maxVolume) // if the solutions are equally good, choose the one below max volume
-                {
-                    previousSolution = slots;
-                    previousVolume = currentVolume;
-                } else
-                {
-                    slots = previousSolution;
-                    currentVolume = previousVolume;
-                } 
-                
-
-            }
-
-            Console.Write("\n\n");
-            
-
-            for (int i = 1; i < m; i++)
-            {
-                Mutation();
-                if (currentVolume == maxVolume) // stop mutating when the optimal solution is reached
-                {
-                    m = i;
+                    maxMutations = i + 1;
                     break;
                 }
 
+                if (IsBetterSolution(currentVolume, bestVolume, maxVolume))
+                {
+                    bestSolution = solution.ToArray();
+                    bestVolume = currentVolume;
+                }
+                else
+                {
+                    solution = bestSolution.ToArray();
+                    currentVolume = bestVolume;
+                }
             }
 
-            Console.Write($"Solution after {m} mutations:\n");
-            for (int i = 0; i < previousSolution.Length; i++) 
+            Console.Write($"\nSolution after {maxMutations} mutations:\n");
+            PrintSolution(bestSolution, bestVolume);
+        }
+
+        static int GetInput(string message)
+        {
+            Console.WriteLine(message);
+            return int.Parse(Console.ReadLine());
+        }
+
+        static void InitializeComponents(int[] componentSizes, byte[] solution, int minComponentSize, int maxComponentSize, Random random)
+        {
+            for (int i = 0; i < componentSizes.Length; i++)
             {
-                Console.Write($"{previousSolution[i]}");
+                componentSizes[i] = random.Next(minComponentSize, maxComponentSize);
+                solution[i] = (byte)random.Next(0, 2);
             }
-            Console.Write($" - volume: {previousVolume}\n");
+        }
+
+        static int CalculateVolume(int[] componentSizes, byte[] solution)
+        {
+            int currentVolume = 0;
+            for (int i = 0; i < solution.Length; i++)
+            {
+                if (solution[i] == 1)
+                {
+                    currentVolume += componentSizes[i];
+                }
+            }
+            return currentVolume;
+        }
+
+        static void MutateSolution(byte[] solution, int[] componentSizes, Random random)
+        {
+            int randomIndex = random.Next(0, solution.Length);
+            solution[randomIndex] = (byte)(1 - solution[randomIndex]);
+        }
+
+        static bool IsBetterSolution(int currentVolume, int bestVolume, int maxVolume)
+        {
+            int currentDifference = Math.Abs(currentVolume - maxVolume);
+            int bestDifference = Math.Abs(bestVolume - maxVolume);
+
+            return (currentDifference < bestDifference) || (currentDifference == bestDifference && currentVolume < maxVolume);
+        }
+
+        static void PrintSolution(byte[] solution, int volume)
+        {
+            Console.Write(string.Join("", solution));
+            Console.WriteLine($" - volume: {volume}\n");
         }
     }
 }
-
